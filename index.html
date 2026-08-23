@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enchant Level Boost — Fabric mod builder</title>
+<meta name="description" content="Raises vanilla Minecraft enchantment level caps by patching your own client jar's data files. No Java, no Gradle.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0a12;
+    --bg-deep: #060509;
+    --panel: #17121f;
+    --panel-edge: #2a2138;
+    --ink: #ece7f4;
+    --ink-dim: #a89bc2;
+    --ink-faint: #6e6284;
+    --purple: #b98eff;
+    --purple-dim: #7a5bb0;
+    --green: #7fe89a;
+    --lapis: #4a9eff;
+    --gold: #e8c468;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(185,142,255,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 20%, rgba(74,158,255,0.07), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Manrope', sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--purple);}
+  .mono{font-family:'JetBrains Mono', monospace;}
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px;}
+
+  /* ---------- nav ---------- */
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:22px 0;
+  }
+  .brand{
+    font-family:'Silkscreen', monospace;
+    font-size:15px;
+    color:var(--ink);
+    letter-spacing:0.5px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .brand-glyph{
+    width:18px; height:18px;
+    background:linear-gradient(145deg, var(--purple), var(--lapis));
+    display:inline-block;
+    clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    box-shadow:0 0 12px rgba(185,142,255,0.6);
+  }
+  .navlinks{display:flex; gap:28px; font-size:14px; color:var(--ink-dim);}
+  .navlinks a{color:var(--ink-dim); text-decoration:none;}
+  .navlinks a:hover{color:var(--purple);}
+
+  /* ---------- hero ---------- */
+  header.hero{padding:64px 0 40px;}
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    color:var(--green);
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    margin-bottom:18px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{content:''; width:6px; height:6px; background:var(--green); box-shadow:0 0 8px var(--green); display:inline-block;}
+  h1{
+    font-family:'Silkscreen', monospace;
+    font-size:clamp(28px, 5vw, 44px);
+    line-height:1.35;
+    color:var(--ink);
+    max-width:11ch;
+    margin-bottom:22px;
+  }
+  h1 .hl{color:var(--purple); text-shadow:0 0 22px rgba(185,142,255,0.45);}
+  .lede{
+    font-size:17px;
+    color:var(--ink-dim);
+    max-width:56ch;
+    margin-bottom:32px;
+  }
+  .lede strong{color:var(--ink); font-weight:700;}
+  .cta-row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:8px;}
+  .btn{
+    font-family:'Manrope', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    padding:13px 22px;
+    border-radius:6px;
+    text-decoration:none;
+    display:inline-flex; align-items:center; gap:8px;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+    border:1px solid transparent;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn-primary{
+    background:linear-gradient(145deg, #c9a3ff, var(--purple));
+    color:#1a0f2e;
+    box-shadow:0 0 0 rgba(185,142,255,0);
+  }
+  .btn-primary:hover{box-shadow:0 6px 24px rgba(185,142,255,0.35);}
+  .btn-ghost{
+    background:transparent;
+    border-color:var(--panel-edge);
+    color:var(--ink-dim);
+  }
+  .btn-ghost:hover{border-color:var(--purple-dim); color:var(--ink);}
+  .price-note{font-size:13px; color:var(--ink-faint); margin-top:14px;}
+
+  /* ---------- signature: level ladder ---------- */
+  .ladder-section{padding:20px 0 70px;}
+  .ladder{
+    background:var(--panel);
+    border:1px solid var(--panel-edge);
+    border-radius:10px;
+    padding:6px;
+    position:relative;
+    overflow:hidden;
+  }
+  .ladder::before{
+    content:'';
+    position:absolute; inset:0;
+    background:linear-gradient(115deg, transparent 30%, rgba(185,142,255,0.06) 45%, transparent 60%);
+    background-size:200% 200%;
+    animation:shimmer 7s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes shimmer{
+    0%{background-position:200% 0%;}
+    100%{background-position:-40% 0%;}
+  }
+  .ladder-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 18px 10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--ink-faint);
+    text-transform:uppercase; letter-spacing:1px;
+  }
+  .ladder-row{
+    display:grid;
+    grid-template-columns:1fr auto auto auto;
+    gap:14px;
+    align-items:center;
+    padding:11px 18px;
+    border-top:1px solid rgba(255,255,255,0.04);
+    font-size:14px;
+  }
+  .ladder-row .id{font-family:'JetBrains Mono', monospace; color:var(--ink);}
+  .ladder-row .old{color:var(--ink-faint); font-family:'JetBrains Mono', monospace; font-size:13px;}
+  .arrow{color:var(--ink-faint);}
+  .ladder-row .new{
+    font-family:'JetBrains Mono', monospace;
+    color:var(--green);
+    font-weight:600;
+    text-shadow:0 0 10px rgba(127,232,154,0.4);
+  }
+  .roman{
+    font-family:'Silkscreen', monospace;
+    font-size:12px;
+    color:var(--purple);
+    background:rgba(185,142,255,0.1);
+    border:1px solid rgba(185,142,255,0.25);
+    padding:3px 8px;
+    border-radius:4px;
+    text-align:center;
+    min-width:52px;
+  }
+
+  /* ---------- how it works ---------- */
+  section{padding:56px 0;}
+  .section-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px; color:var(--lapis);
+    letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:10px;
+  }
+  h2{
+    font-family:'Silkscreen', monospace;
+    font-size:22px;
+    margin-bottom:28px;
+    color:var(--ink);
+  }
+  .steps{display:flex; flex-direction:column; gap:0;}
+  .step{
+    display:grid;
+    grid-template-columns:44px 1fr;
+    gap:18px;
+    padding:22px 0;
+    border-top:1px solid var(--panel-edge);
+  }
+  .step:last-child{border-bottom:1px solid var(--panel-edge);}
+  .step-num{
+    font-family:'JetBrains Mono', monospace;
+    color:var(--purple-dim);
+    font-size:13px;
+    padding-top:2px;
+  }
+  .step h3{
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+  .step p{color:var(--ink-dim); font-size:14.5px; max-width:56ch;}
+  .step code{
+    font-family:'JetBrains Mono', monospace;
+    background:var(--bg-deep);
+    border:1px solid var(--panel-edge);
+    padding:2px 6px;
+    border-radius:4px;
+    font-size:13px;
+    color:var(--gold);
+  }
+
+  /* ---------- caps note ---------- */
+  .note{
+    background:rgba(74,158,255,0.06);
+    border:1px solid rgba(74,158,255,0.2);
+    border-left:3px solid var(--lapis);
+    border-radius:6px;
+    padding:16px 20px;
+    font-size:14px;
+    color:var(--ink-dim);
+  }
+  .note strong{color:var(--ink);}
+
+  /* ---------- footer ---------- */
+  footer{
+    padding:40px 0 60px;
+    border-top:1px solid var(--panel-edge);
+    margin-top:30px;
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:14px;
+  }
+  footer .mono{font-size:12px; color:var(--ink-faint);}
+  footer a{color:var(--ink-dim); text-decoration:none; font-size:13px;}
+  footer a:hover{color:var(--purple);}
+
+  @media (max-width:640px){
+    .ladder-row{grid-template-columns:1fr auto; row-gap:6px;}
+    .ladder-row .old{display:none;}
+    .arrow{display:none;}
+    nav{flex-direction:column; align-items:flex-start; gap:14px;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ladder::before{animation:none;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav>
+    <div class="brand"><span class="brand-glyph"></span>enchant_level_boost</div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#caps">Damage caps</a>
+      <a href="https://github.com/freezone9100-lang/enchant_boost_mod">Source</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="eyebrow">Fabric · Minecraft 1.21+</div>
+    <h1>Push enchantments past their <span class="hl">vanilla ceiling.</span></h1>
+    <p class="lede">
+      A Python builder that reads the enchantment data straight out of <strong>your own</strong>
+      client jar, raises the max level, and packages it into a real Fabric mod —
+      no Java, no Gradle, no SDK.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://github.com/freezone9100-lang/enchant_boost_mod/releases">Get the latest release</a>
+      <a class="btn btn-ghost" href="https://github.com/freezone9100-lang/enchant_boost_mod">View source</a>
+    </div>
+    <p class="price-note">Free and open source. Runs locally — nothing is uploaded anywhere.</p>
+  </header>
+
+  <div class="ladder-section">
+    <div class="ladder">
+      <div class="ladder-head">
+        <span>enchantment</span>
+        <span>vanilla → boosted</span>
+      </div>
+      <div class="ladder-row">
+        <span class="id">sharpness</span>
+        <span class="roman">V</span>
+        <span class="arrow">→</span>
+        <span class="roman" style="color:var(--green); border-color:rgba(127,232,154,0.3); background:rgba(127,232,154,0.08);">XII</span>
+      </div>
+      <div class="ladder-row">
+        <span class="id">protection</span>
+        <span class="roman">IV</span>
+        <span class="arrow">→</span>
+        <span class="roman" style="color:var(--green); border-color:rgba(127,232,154,0.3); background:rgba(127,232,154,0.08);">X</span>
+      </div>
+      <div class="ladder-row">
+        <span class="id">unbreaking</span>
+        <span class="roman">III</span>
+        <span class="arrow">→</span>
+        <span class="roman" style="color:var(--green); border-color:rgba(127,232,154,0.3); background:rgba(127,232,154,0.08);">XIV</span>
+      </div>
+      <div class="ladder-row">
+        <span class="id">fortune</span>
+        <span class="roman">III</span>
+        <span class="arrow">→</span>
+        <span class="roman" style="color:var(--green); border-color:rgba(127,232,154,0.3); background:rgba(127,232,154,0.08);">X</span>
+      </div>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="section-label">Process</div>
+    <h2>Three steps, no build toolchain</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div>
+          <h3>Point it at your install</h3>
+          <p>The script auto-detects your newest installed Minecraft version, or you can pass <code>--version</code> / <code>--jar</code> directly. It reads the real enchantment JSON out of that exact jar.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div>
+          <h3>Edit the level table</h3>
+          <p>Open the script and adjust the <code>ENCHANT_BOOSTS</code> dictionary — enchantment id to new max level. Everything else in the original data (costs, formulas, requirements) is left untouched.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div>
+          <h3>Build and drop it in</h3>
+          <p>Run <code>python3 build_enchant_boost_mod.py</code>. It outputs a ready Fabric <code>.jar</code> — copy it into your <code>.minecraft/mods</code> folder and launch the Fabric profile.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="caps">
+    <div class="section-label">Know before you boost</div>
+    <h2>Not every enchant scales forever</h2>
+    <div class="note">
+      <strong>Protection-type enchantments are capped at 80% total damage reduction</strong>,
+      calculated across your whole armor set — pushing past that with higher levels stacks
+      no further benefit. Damage-dealing enchantments like Sharpness have no such ceiling
+      and scale linearly with level.
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">MIT-style · CC0-1.0 licensed</span>
+    <div style="display:flex; gap:20px;">
+      <a href="https://github.com/freezone9100-lang/enchant_boost_mod">GitHub</a>
+      <a href="https://github.com/freezone9100-lang/enchant_boost_mod/issues">Issues</a>
+      <a href="https://fabricmc.net/use/installer/">Fabric Loader</a>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>
