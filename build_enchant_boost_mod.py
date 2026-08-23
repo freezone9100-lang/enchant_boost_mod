@@ -57,6 +57,25 @@ CUSTOMIZING LEVELS:
   value = the new max level you want (1-255, vanilla hard limit).
   Any enchantment NOT listed here is left completely untouched - the mod
   simply doesn't include a file for it, so vanilla's own definition wins.
+
+WHY BOOSTED LEVELS DIDN'T SHOW UP AT THE ENCHANTING TABLE BEFORE:
+  Raising max_level alone makes a level *legal*, but the enchanting table
+  decides what to *offer* using two more fields on the same JSON file:
+  min_cost and max_cost. Each is a formula (base + per_level_above_first x
+  (level-1)) that vanilla scales up automatically for the new higher
+  levels - which pushes the required enchanting power (capped around 30
+  at a normal 15-bookshelf table) way out of reach. That's why the table
+  kept offering the old vanilla-range levels even with this mod installed.
+
+  This script now rescales per_level_above_first on both min_cost and
+  max_cost (for every enchantment it boosts) so the new top level's
+  required power lands back within TABLE_REACHABLE_POWER below. The old
+  "base" cost (the price for level 1) is left untouched - only how
+  steeply cost climbs per extra level is compressed. This does NOT
+  guarantee the table rolls your new top level often, since the table
+  still picks randomly among every level that fits the power range - it
+  just makes that level reachable at all through normal enchanting
+  instead of only via /enchant commands.
 """
 
 import argparse
@@ -107,6 +126,13 @@ ENCHANT_BOOSTS = {
 MOD_ID = "enchant_level_boost"
 MOD_NAME = "Enchant Level Boost"
 MOD_VERSION = "1.0.0"
+
+# The approximate max "enchanting power" a normal table can reach with a
+# full 15-bookshelf setup (the number shown on the bottom enchant slot).
+# Cost curves get compressed so each boosted enchant's new top level is
+# reachable at or below this power. Raise it if you're using command-block
+# power boosts or don't mind some boosted levels staying command-only.
+TABLE_REACHABLE_POWER = 30
 
 # --------------------------------------------------------------------------
 # 2. Locate a Minecraft client jar
@@ -243,6 +269,36 @@ def load_vanilla_enchantments(client_jar: Path):
     return out
 
 
+def rescale_cost_curve(cost_field: dict | None, new_max_level: int, target_power: int):
+    """Given a vanilla min_cost/max_cost object like {"base": 1,
+    "per_level_above_first": 11}, return a copy whose per_level_above_first
+    is shrunk so cost at new_max_level doesn't exceed target_power.
+    "base" (the level-1 price) is always left alone. Returns None
+    unchanged if the field is missing or shaped unexpectedly - some
+    versions/enchantments may not use this exact schema, and in that case
+    we just leave max_level as the only change for that field."""
+    if not isinstance(cost_field, dict) or "base" not in cost_field:
+        return cost_field
+
+    base = cost_field["base"]
+    old_per_level = cost_field.get("per_level_above_first", 0)
+    levels_above_first = max(1, new_max_level - 1)
+
+    room = target_power - base
+    if room <= 0:
+        # base price alone already exceeds our target power - nothing we
+        # can do without also touching level 1's price, which we don't.
+        new_per_level = 0
+    else:
+        new_per_level = max(1, room // levels_above_first)
+        # never make levels MORE expensive than vanilla already had them
+        new_per_level = min(new_per_level, old_per_level) if old_per_level else new_per_level
+
+    patched = dict(cost_field)
+    patched["per_level_above_first"] = new_per_level
+    return patched
+
+
 def roman_numeral(n: int) -> str:
     table = [
         (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
@@ -279,12 +335,20 @@ def build(client_jar: Path, out_dir: Path, boosts: dict):
             print(f"  skip: '{enchant_id}' target {new_max} <= vanilla {old_max}, nothing to do")
             continue
 
-        patched = dict(original)  # shallow copy is enough, we only touch one key
+        patched = dict(original)
         patched["max_level"] = new_max
+
+        cost_patched = False
+        if "min_cost" in original:
+            patched["min_cost"] = rescale_cost_curve(original["min_cost"], new_max, TABLE_REACHABLE_POWER)
+            cost_patched = True
+        if "max_cost" in original:
+            patched["max_cost"] = rescale_cost_curve(original["max_cost"], new_max, TABLE_REACHABLE_POWER)
+            cost_patched = True
 
         path = f"data/minecraft/enchantment/{enchant_id}.json"
         data_files[path] = json.dumps(patched, indent=2).encode("utf-8")
-        changes.append((enchant_id, old_max, new_max))
+        changes.append((enchant_id, old_max, new_max, cost_patched))
         highest_level_used = max(highest_level_used, new_max)
 
     if not changes:
@@ -324,8 +388,14 @@ def build(client_jar: Path, out_dir: Path, boosts: dict):
 
     print()
     print("Boosted enchantments:")
-    for enchant_id, old_max, new_max in changes:
-        print(f"  {enchant_id}: {roman_numeral(old_max)} -> {roman_numeral(new_max)}  ({old_max} -> {new_max})")
+    for enchant_id, old_max, new_max, cost_patched in changes:
+        tag = "table-reachable" if cost_patched else "max_level only, no cost field found"
+        print(f"  {enchant_id}: {roman_numeral(old_max)} -> {roman_numeral(new_max)}  ({old_max} -> {new_max})  [{tag}]")
+    print()
+    print(f"Cost curves compressed to stay reachable at ~{TABLE_REACHABLE_POWER} enchanting power")
+    print("(a normal 15-bookshelf table). Boosted top levels are now offerable")
+    print("through normal enchanting, not just /enchant commands - though the")
+    print("table still rolls randomly among every level within power range.")
     print()
     print(f"Built: {jar_path}")
     print(f"Source jar used: {client_jar}")
